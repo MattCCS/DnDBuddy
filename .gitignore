@@ -1,0 +1,9 @@
+# Mac
+*.DS_Store
+
+# Python
+*.pyc
+__pycache__
+
+# ignore the Player's HandBook submodule
+PHB
