@@ -2,74 +2,56 @@
 Author: Matthew Cotton <matthewcotton.cs@gmail.com>
 """
 
-from dndbuddy import colors
-from dndbuddy import terms
-from dndbuddy.Basic import alignments
-from dndbuddy.Basic import armor
-from dndbuddy.Basic import combat
-from dndbuddy.Basic import createcharacter
-from dndbuddy.Basic import hitdice
-from dndbuddy.Basic import rolldice
-from dndbuddy.Basic import weapons
-# from dndbuddy.PHB import experience
-# from dndbuddy.PHB import heightweight
-# from dndbuddy.PHB import languages
-# from dndbuddy.PHB import sizes
-# from dndbuddy.PHB.classes import ranger
-# from dndbuddy.PHB.races import halfelf
+import importlib
+import traceback
+
+from dndbuddy import constants
+
+from dndbuddy_core import colors
+from dndbuddy_core import settings
+from dndbuddy_core import terms
 
 
-SPACE_AFTER_RESULTS = True
+INTERACTIVE_COMMANDS = []
+REFERENCE_COMMANDS = [terms.TermsCommand()]
+CLASS_COMMANDS = []
+RACE_COMMANDS = []
+SPELL_COMMANDS = []
+MISC_COMMANDS = []
 
-ESC = chr(27)
-U_ARROW = ESC + "[A"
-D_ARROW = ESC + "[B"
-R_ARROW = ESC + "[C"
-L_ARROW = ESC + "[D"
-
-TITLE = colors.red("D&DBuddy")
-
-WELCOME = """\
-Welcome to {}!
-====================
-Run `help` for hints!
-""".format(TITLE)
-
-PROMPT = """[{}]> """.format(TITLE)
-
-GOODBYE = """\nGood game!"""
+COMMANDS = []
 
 
-INTERACTIVE_COMMANDS = [
-    rolldice.RollDiceCommand,
-    createcharacter.CreateCharacterCommand,
-]
+def import_modules():
+    global COMMANDS
 
-REFERENCE_COMMANDS = [
-    combat.CombatCommand,
-    hitdice.HitDiceCommand,
-    # experience.ExperienceCommand,
-    weapons.WeaponsCommand,
-    armor.ArmorCommand,
-    alignments.AlignmentsCommand,
-    # languages.LanguageCommand,
-    # heightweight.HeightWeightCommand,
-    # sizes.SizesCommand,
-    terms.TermsCommand,
-]
+    for module_name in settings.MODULE_NAMES:
+        try:
+            import_module(module_name)
+        except ModuleNotFoundError as exc:
+            print("Couldn't find module named '{}'.".format(module_name))
+        except Exception as exc:
+            traceback.print_exc()
+            print("Couldn't import module named '{}' (see above)\n".format(module_name))
 
-CLASS_COMMANDS = [
-    # ranger.RangerCommand,
-]
+    COMMANDS = INTERACTIVE_COMMANDS + \
+        REFERENCE_COMMANDS + \
+        CLASS_COMMANDS + \
+        RACE_COMMANDS + \
+        SPELL_COMMANDS + \
+        MISC_COMMANDS
 
-RACE_COMMANDS = [
-    # halfelf.HalfElfCommand,
-]
 
-COMMANDS = INTERACTIVE_COMMANDS + \
-    REFERENCE_COMMANDS + \
-    CLASS_COMMANDS + \
-    RACE_COMMANDS
+def import_module(module_name):
+    module = importlib.import_module(module_name)
+    commands = module.COMMANDS
+
+    INTERACTIVE_COMMANDS.extend(commands.get("interactive", []))
+    REFERENCE_COMMANDS.extend(commands.get("reference", []))
+    CLASS_COMMANDS.extend(commands.get("class", []))
+    RACE_COMMANDS.extend(commands.get("race", []))
+    SPELL_COMMANDS.extend(commands.get("spell", []))
+    MISC_COMMANDS.extend(commands.get("misc", []))
 
 
 def list_commands(commands, prefix='- '):
@@ -81,63 +63,74 @@ def list_commands(commands, prefix='- '):
 
 
 def show_help():
-    print("Things D&DBuddy can do:")
+    print("Things {} can do:".format(constants.TITLE))
 
-    print("\nInteractive commands:")
-    list_commands(INTERACTIVE_COMMANDS)
-    print("\nInfo pages:")
-    list_commands(REFERENCE_COMMANDS)
-    print("\nClass info:")
-    list_commands(CLASS_COMMANDS)
-    print("\nRace info:")
-    list_commands(RACE_COMMANDS)
+    section = lambda s: colors.white(s, bold=True)
 
-    print("\nHelp:\nshow this menu (try `help` or `?`)")
+    if INTERACTIVE_COMMANDS:
+        print(section("\nInteractive commands:"))
+        list_commands(INTERACTIVE_COMMANDS)
+
+    if REFERENCE_COMMANDS:
+        print(section("\nInfo pages:"))
+        list_commands(REFERENCE_COMMANDS)
+
+    if CLASS_COMMANDS:
+        print(section("\nClass info:"))
+        list_commands(CLASS_COMMANDS)
+
+    if RACE_COMMANDS:
+        print(section("\nRace info:"))
+        list_commands(RACE_COMMANDS)
+
+    if SPELL_COMMANDS:
+        print(section("\nSpells:"))
+        list_commands(SPELL_COMMANDS)
+
+    if MISC_COMMANDS:
+        print(section("\nOther commands:"))
+        list_commands(MISC_COMMANDS)
+
+    print(section("\nHelp:") + " show this menu (try `help` or `?`)")
+    print(section("Quit:") + " `exit` or `quit`")
 
 
 def try_all_commands(inp):
-    if inp.lower() in ['help', '?']:
+    if inp.lower() in ('help', '?'):
         return show_help()
 
     for command in COMMANDS:
-        if command.call(inp):
+        if command(inp):
             break
     else:
-        print("I don't understand `{}`.".format(inp))
+        print("I don't understand `{}`.\n\nRun `help` for hints!".format(inp))
 
 
 def menu():
-
-    last_command = ''
-
     while True:
-        inp = input(PROMPT)
+        inp = input(constants.PROMPT)
         if not inp:
             continue
 
-        if inp == U_ARROW:
-            inp = last_command
+        if inp.lower() in ('exit', 'quit', 'gg'):
+            return
 
         try:
             try_all_commands(inp)
+            print()
         except KeyboardInterrupt:
             print("Cancelled.")
 
-        if SPACE_AFTER_RESULTS:
-            print()
-
-        last_command = inp
-
 
 def main():
-    print(WELCOME)
+    import_modules()
 
+    print(constants.WELCOME)
     try:
         menu()
     except KeyboardInterrupt:
         pass
-
-    print(GOODBYE)
+    print(constants.GOODBYE)
 
 
 if __name__ == '__main__':

@@ -12,4 +12,4 @@ DIR="$( cd -P "$( dirname "$SOURCE" )" && pwd )"
 cd $DIR
 
 
-python3 -m dndbuddy.main
+python3 -Bum dndbuddy.main
